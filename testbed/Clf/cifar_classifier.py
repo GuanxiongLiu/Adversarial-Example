@@ -16,7 +16,7 @@ from keras.layers import Input, UpSampling2D, AveragePooling2D
 from keras.layers import Dense, Dropout, Activation, GlobalAveragePooling2D
 from keras.layers import Conv2D, MaxPooling2D, Flatten
 from keras.utils import np_utils
-from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard, EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 
 import sys
@@ -52,26 +52,20 @@ class Classifier:
         # input
         input_img = Input(shape=input_shape)
         # hidden layers
-        x = Conv2D(96, (3, 3), activation='relu', padding='same')(input_img)
-        x = Conv2D(96, (3, 3), activation='relu', padding='same')(x)
+        x = Conv2D(96, (3, 3), activation='relu', padding='same', kernel_initializer="glorot_uniform")(input_img)
+        x = Conv2D(96, (3, 3), activation='relu', padding='same', kernel_initializer="glorot_uniform")(x)
+        x = Conv2D(96, (3, 3), activation='relu', padding='same', kernel_initializer="glorot_uniform")(x)
         x = MaxPooling2D((2, 2), padding='same')(x)
-        #x = Dropout(0.25)(x)
-        x = Conv2D(192, (3, 3), activation='relu', padding='same')(x)
-        x = Conv2D(192, (3, 3), activation='relu', padding='same')(x)
-        x = Conv2D(192, (3, 3), activation='relu', padding='same')(x)
+        x = Dropout(0.5)(x)
+        x = Conv2D(192, (3, 3), activation='relu', padding='same', kernel_initializer="glorot_uniform")(x)
+        x = Conv2D(192, (3, 3), activation='relu', padding='same', kernel_initializer="glorot_uniform")(x)
+        x = Conv2D(192, (3, 3), activation='relu', padding='same', kernel_initializer="glorot_uniform")(x)
         x = MaxPooling2D((2, 2), padding='same')(x)
-        #x = Dropout(0.25)(x)
-        x = Conv2D(192, (3, 3), activation='relu', padding='same')(x)
-        x = Conv2D(192, (1, 1), activation='relu', padding='same')(x)
-        x = Conv2D(10, (1, 1), activation='relu', padding='same')(x)
+        x = Dropout(0.5)(x)
+        x = Conv2D(192, (3, 3), activation='relu', padding='same', kernel_initializer="glorot_uniform")(x)
+        x = Conv2D(192, (1, 1), activation='relu', padding='same', kernel_initializer="glorot_uniform")(x)
+        x = Conv2D(10, (1, 1), activation='relu', padding='same', kernel_initializer="glorot_uniform")(x)
         x = GlobalAveragePooling2D()(x)
-        #x = MaxPooling2D((2, 2), padding='same')(x)
-        #x = Dropout(0.25)(x)
-        #x = Flatten()(x)
-        #x = Dense(512, activation='relu')(x)
-        #x = Dropout(0.5)(x)
-        #x = Dense(256, activation='relu')(x)
-        #x = Dropout(0.5)(x)
         # output
         output = Dense(10)(x)
         
@@ -82,6 +76,7 @@ class Classifier:
         # classifier
         self.model = Model(input_img, output)
         self.model.compile(optimizer='sgd', loss=fn, metrics=['accuracy'])
+        print(self.model.summary())
 
     def train(self, X, y, X_val, y_val, save_path='models/cifar_classifier'):
         if os.path.exists(save_path):
@@ -93,7 +88,9 @@ class Classifier:
             # fit model
             self.model.fit_generator(datagen.flow(X, y, batch_size=32), \
                                 steps_per_epoch=len(X) / 32, epochs=350, \
-                                validation_data=(X_val, y_val), callbacks=[TensorBoard(log_dir = '/tmp/classifier')])
+                                validation_data=(X_val, y_val), \
+                                callbacks=[TensorBoard(log_dir='/tmp/classifier'), \
+                                           EarlyStopping(monitor='loss', mode='max')])
         # save model
         self.model.save(save_path)
 

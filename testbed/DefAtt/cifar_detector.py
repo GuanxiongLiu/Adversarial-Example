@@ -18,7 +18,7 @@ from keras.callbacks import TensorBoard
 from keras import optimizers
 
 import sys
-sys.path.append('/home/guanxiong/Documents/research/Adversarial-Learning/Nov-07/testbed')
+sys.path.append('../')
 
 from GenAtt.load_data import CIFAR10
 

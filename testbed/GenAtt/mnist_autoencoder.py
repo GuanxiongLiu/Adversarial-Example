@@ -16,7 +16,7 @@ from keras.utils import np_utils
 from keras.callbacks import TensorBoard
 
 import sys
-sys.path.append('/home/guanxiong/Documents/research/Adversarial-Learning/Nov-07/testbed')
+sys.path.append('../testbed')
 
 from GenAtt.load_data import MNIST, MNIST_move, CIFAR10
 

@@ -20,7 +20,7 @@ from keras.callbacks import TensorBoard, EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
 
 import sys
-sys.path.append('/home/guanxiong/Documents/research/Adversarial-Learning/Nov-07/testbed')
+sys.path.append('../')
 
 from GenAtt.load_data import MNIST, MNIST_move, CIFAR10
 
@@ -89,8 +89,7 @@ class Classifier:
             self.model.fit_generator(datagen.flow(X, y, batch_size=32), \
                                 steps_per_epoch=len(X) / 32, epochs=350, \
                                 validation_data=(X_val, y_val), \
-                                callbacks=[TensorBoard(log_dir='/tmp/classifier'), \
-                                           EarlyStopping(monitor='loss', mode='max')])
+                                callbacks=[TensorBoard(log_dir='/tmp/classifier')])
         # save model
         self.model.save(save_path)
 

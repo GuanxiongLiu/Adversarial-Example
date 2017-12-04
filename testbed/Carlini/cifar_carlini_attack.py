@@ -9,7 +9,7 @@ import tensorflow as tf
 import numpy as np
 import time
 import sys
-sys.path.append('/home/guanxiong/Documents/research/Adversarial-Learning/Nov-07/testbed')
+sys.path.append('../')
 
 from Clf.cifar_classifier import Classifier
 from GenAtt.load_data import CIFAR10

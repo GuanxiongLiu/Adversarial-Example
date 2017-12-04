@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import os
 import sys
-sys.path.append('/home/guanxiong/Documents/research/Adversarial-Learning/Nov-07/testbed')
+sys.path.append('../testbed')
 
 from load_data import MNIST
 from train_models import Autoencoder

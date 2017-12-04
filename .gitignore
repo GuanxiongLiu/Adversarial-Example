@@ -2,4 +2,3 @@
 **/*.pdf
 **/*.zip
 **/__pycache__
-**/*.npy

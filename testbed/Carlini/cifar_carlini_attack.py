@@ -15,6 +15,7 @@ from Clf.cifar_classifier import Classifier
 from GenAtt.load_data import CIFAR10
 
 from setup_mnist import MNIST, MNISTModel
+from setup_cifar import CIFAR, CIFARModel
 
 from l2_attack import CarliniL2
 
@@ -72,8 +73,20 @@ if __name__ == "__main__":
     with tf.Session() as sess:
         #data, model =  MNIST(), Classifier(sess)
         data = CIFAR10()
-        model = Classifier(input_shape=data.IMG_SHAPE, session=sess)
-        model.restore('../Clf/models/cifar_classifier')
+        
+        # target model
+        if sys.argv[1] == 'our':
+            model = Classifier(input_shape=data.IMG_SHAPE, session=sess)
+            model.restore('../Clf/models/cifar_classifier')
+        elif sys.argv[1] == 'orgONLY':
+            model = CIFARModel('models/cifar', sess)
+        elif sys.argv[1] == 'orgDIS':
+            model = CIFARModel('models/cifar-distilled-100', sess)
+        else:
+            print('Wrong Parameters')
+            sys.exit()
+
+        # init attack
         attack = CarliniL2(sess, model, targeted=False, max_iterations=1000, confidence=10, boxmin=0, boxmax=1)
 
         #inputs, targets = generate_data(data, samples=128, targeted=False, start=0, inception=False)
@@ -86,4 +99,4 @@ if __name__ == "__main__":
         
         print("Took",timeend-timestart,"seconds to run",len(inputs),"samples.")
 
-        np.save('results/cifar_carlini_l2_10.npy', adv)
+        np.save(('results/%s.npy' % sys.argv[2]), adv)

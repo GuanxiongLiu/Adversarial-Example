@@ -71,5 +71,5 @@ if __name__ == '__main__':
             if i == 2:
                 img = att_self[index[j]].reshape(32,32,3)
             plt.imshow(img)
-    plt.savefig('img/att_compare')
+    plt.savefig('img/'+sys.argv[3])
     plt.close()

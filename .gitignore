@@ -2,3 +2,8 @@
 **/*.pdf
 **/*.zip
 **/__pycache__
+**/*.npy
+**/*.bin
+**/*.html
+**/*.gz
+**/*.txt

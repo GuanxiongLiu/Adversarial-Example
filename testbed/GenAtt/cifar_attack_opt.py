@@ -12,6 +12,8 @@ from cifar_autoencoder import Autoencoder
 from Clf.cifar_classifier import Classifier
 import tensorflow as tf
 
+from Carlini.setup_cifar import CIFARModel
+
 
 
 
@@ -25,7 +27,7 @@ L_RATE  = 1e-3
 INIT_CONST = 1e-3
 MAX_CONST = 10
 CONST_SEARCH = 10  # how many iteration to find a suitable constant
-MAX_ITER = 2000
+MAX_ITER = 1000
 EARLY_ABORT = True
 GEN_NUM = 128  # how many batch of adversarial example to generate
 
@@ -44,14 +46,13 @@ GEN_NUM = 128  # how many batch of adversarial example to generate
 # Functions
 ################
 class AntiDef:
-    def __init__(self, session, data):
+    def __init__(self, session, data, model):
         # get tensorflow session
         self.sess = session
 
         # load data, autoencoder and classifier
         self.data = data
-        self.classifier = Classifier(input_shape=data.IMG_SHAPE, session=self.sess)
-        self.classifier.restore('../Clf/models/cifar_classifier')
+        self.classifier = model
         self.autoencoder = Autoencoder(input_shape=data.IMG_SHAPE, session=self.sess)
         self.autoencoder.restore('models/cifar_autoencoder')
 
@@ -74,6 +75,7 @@ class AntiDef:
         self.oimg = self.TanhFunc(self.timg)
         self.aimg = self.TanhFunc(self.timg + delta)
         self.rimg = self.autoencoder.model(self.aimg)
+        self.roimg = self.autoencoder.model(self.oimg)
 
         # evaluate adversarial img
         self.opred = self.classifier.model(self.oimg)
@@ -81,14 +83,25 @@ class AntiDef:
         self.rpred = self.classifier.model(self.rimg)
 
         # calculate distance
+        self.dltdist = tf.reduce_sum(tf.square(delta), [1,2,3]) # delta change distance
         self.r2odist = tf.reduce_sum(tf.square(self.rimg - self.oimg), [1,2,3])  # reform to original distance
         self.r2adist = tf.reduce_sum(tf.square(self.rimg - self.aimg), [1,2,3]) # reform to adversarial distance
         self.a2odist = tf.reduce_sum(tf.square(self.aimg - self.oimg), [1,2,3])  # adversarial to original distance
-        self.dltdist = tf.reduce_sum(tf.square(delta), [1,2,3]) # delta change distance
+        self.r2rodist = tf.reduce_sum(tf.square(self.rimg - self.roimg), [1,2,3])  # reform to original reform distance
+        
+
+        # form loss part
+        loss1 = tf.reduce_sum(self.a2odist)
+        if sys.argv[3] == 'f1':
+            loss2 = tf.reduce_sum(self.const*self.r2odist)
+        elif sys.argv[3] == 'f2':
+            loss2 = tf.reduce_sum(self.const*self.r2adist)
+        elif sys.argv[3] == 'f3':
+            loss2 = tf.reduce_sum(self.const*self.r2rodist)
 
         # calculate loss function
-        self.loss = tf.reduce_sum(self.a2odist) + tf.reduce_sum(self.const*self.r2adist) - tf.reduce_sum(self.const*self.r2odist)
-        #self.loss = tf.reduce_sum(self.a2odist) + tf.reduce_sum(self.const * (tf.ones(shape=self.const.shape) - (self.r2odist/self.r2adist)))
+        #self.loss = tf.reduce_sum(self.a2odist) + tf.reduce_sum(self.const*self.r2adist) - tf.reduce_sum(self.const*self.r2odist)
+        self.loss = loss1 - loss2
 
         # setup optimizer and track variables
         start_vars = set(x.name for x in tf.global_variables())
@@ -151,25 +164,28 @@ class AntiDef:
                 pre_l = 1e6
                 for inner in range(MAX_ITER):
                     # perform and evaluate attack
-                    _, l, dlts, r2as, r2os, a2os, aimgs, opreds, apreds, rpreds = self.sess.run([self.train, self.loss, 
-                                                                                                self.dltdist, self.r2adist, self.r2odist, self.a2odist,
-                                                                                                self.aimg, self.opred, self.apred, self.rpred])
+                    _, l, dlts, r2as, r2os, a2os, r2ros, aimgs, opreds, apreds, rpreds = self.sess.run([self.train, self.loss, 
+                                                                                                        self.dltdist, self.r2adist, self.r2odist, 
+                                                                                                        self.a2odist, self.r2rodist,
+                                                                                                        self.aimg, self.opred, self.apred, self.rpred])
 
                     # print status
                     if inner%(MAX_ITER//10) == 0:
-                        print(inner, l, (np.sum(a2os), np.sum(r2as), np.sum(r2os)))
+                        print(inner, l, (np.sum(a2os), np.sum(r2os), np.sum(r2as), np.sum(r2ros)))
                         if EARLY_ABORT and l > pre_l * .999:
                             break
                         pre_l = l
 
                     # update inner best attack
-                    for e, (dlt,opred,apred,rpred,aimg) in enumerate(zip(a2os, opreds, apreds, rpreds, aimgs)):
-                        flg = (np.argmax(opred) != np.argmax(apred)) and (np.argmax(opred) != np.argmax(rpred))
-                        if dlt < mindlt[e] and flg:
-                            mindlt[e] = dlt
+                    distance = a2os
+                    for e, (d,gt,apred,rpred,aimg) in enumerate(zip(distance, batch_Y, apreds, rpreds, aimgs)):
+                        #flg = (np.argmax(gt) != np.argmax(apred)) and (np.argmax(gt) != np.argmax(rpred))
+                        flg = (np.argmax(gt) != np.argmax(apred))
+                        if d < mindlt[e] and flg:
+                            mindlt[e] = d
                             findatt[e] = True
-                        if dlt < o_mindlt[e] and flg:
-                            o_mindlt[e] = dlt
+                        if d < o_mindlt[e] and flg:
+                            o_mindlt[e] = d
                             o_bestatt[e] = aimg
                             o_findatt[e] = True
 
@@ -215,10 +231,21 @@ if __name__ == '__main__':
     cifar = CIFAR10()
     with tf.Session() as sess:
         # init
-        attacker = AntiDef(session=sess, data=cifar)
+        if sys.argv[1] == 'allCNN':
+            model = Classifier(input_shape=cifar.IMG_SHAPE, session=sess)
+            model.restore(sys.argv[2])
+        elif sys.argv[1] == 'orgONLY':
+            model = CIFARModel(sys.argv[2], sess)
+        elif sys.argv[1] == 'orgDIS':
+            model = CIFARModel(sys.argv[2], sess)
+        else:
+            print('Wrong Parameters')
+            sys.exit()
+
+        attacker = AntiDef(session=sess, data=cifar, model=model)
         # launch
         att, status = attacker.launch()
         # save result
-        np.save('results/att.npy', np.array(att))
+        np.save(('results/att-%s-%s.npy' % (sys.argv[1], sys.argv[3])), np.array(att))
         np.save('results/status.npy', np.array(status))
         

@@ -7,3 +7,4 @@
 **/*.html
 **/*.gz
 **/*.txt
+**/results
